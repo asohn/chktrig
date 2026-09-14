@@ -66,6 +66,8 @@ scripts/
                  --summary for opcode-frequency stats, for a given map.
 docs/
   chk_trigger_format.md   format + protection findings (the "how")
+  trigger_idioms.md       the engine's register file + mapmaker idioms
+                          built on top of it (counters, RNG, coordinates)
   project_overview.md     this file (the "why" and current state)
 ```
 

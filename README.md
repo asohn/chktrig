@@ -158,6 +158,9 @@ trig_list = triggers.decode_trig(data)   # list[Trigger]
 - [docs/chk_trigger_format.md](docs/chk_trigger_format.md) - full byte-level
   format reference and the map-protection findings (what's corrupted, why,
   and how it's recovered)
+- [docs/trigger_idioms.md](docs/trigger_idioms.md) - the engine's entire
+  mutable-state surface, and the mapmaker idioms (counters, RNG, coordinate
+  systems) built on top of it
 - [docs/project_overview.md](docs/project_overview.md) - project goals,
   scope decisions, and current status
 - [scripts/analyze_map.py](scripts/analyze_map.py) - a complete working
