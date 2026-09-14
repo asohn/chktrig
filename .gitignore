@@ -26,3 +26,9 @@ Thumbs.db
 # StarCraft map fixtures (large binary game data, not source)
 maps/*.scm
 maps/*.scx
+!maps/Chess (final)!.scm
+
+# Generated map output (regeneratable artifacts, not source - see maps_generate/.empty)
+maps_generate/*.scm
+maps_generate/*.scx
+

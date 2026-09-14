@@ -132,3 +132,20 @@ were factual/stable enough to promote out of session context into
 pseudo-primitive-library idea it feeds); the doc itself is the
 citable reference going forward - update it directly for future
 opcode-level findings rather than duplicating them here first.
+
+## 2026-09-13 - Output convention: `maps_generate/`
+
+User designated `maps_generate/` as where any map file *we produce* should
+land, distinct from `maps/`, which stays exclusively real, hand-obtained
+test fixtures (per `.clauderules`, never written to programmatically).
+Mirrors `maps/`'s own convention: `.empty` placeholder tracked in git,
+`*.scm`/`*.scx` contents gitignored (regeneratable output, not source -
+same reasoning as build artifacts, not the "sometimes copyright-protected"
+reasoning `maps/` uses).
+
+Prompted by a second "speculate on building a Chess map from scratch"
+ask, now with a concrete destination in hand rather than a purely
+hypothetical one - read as a signal this is heading toward actually being
+attempted, not just discussed. Nothing writes there yet (write path still
+doesn't exist - roadmap item 1 unchanged); this just settles *where*
+output goes once something does.
