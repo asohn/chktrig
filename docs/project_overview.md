@@ -68,6 +68,8 @@ docs/
   chk_trigger_format.md   format + protection findings (the "how")
   trigger_idioms.md       the engine's register file + mapmaker idioms
                           built on top of it (counters, RNG, coordinates)
+  terrain_format.md       MTXM -> CV5 -> VF4 walkability pipeline,
+                          ground/air movement mechanics
   project_overview.md     this file (the "why" and current state)
 ```
 
@@ -91,12 +93,26 @@ Working end-to-end against both real maps:
   recovering from the deliberately corrupted STR offset table (zone names,
   bridge names, full multi-line quest/death/anti-cheat message text all
   come out clean).
+- **The write path works, confirmed by an actual successful load in the
+  real game** - not just structural self-consistency checks. `mpq_write.py`
+  (multi-sector, PKWARE-compressed via a from-scratch `pkware_dcl.implode`,
+  encrypted) + `chk_encode.py` (13 section encoders) + `units.py` build
+  `maps_generated/marine_walk.scx` from nothing, and it loads and plays.
+  Getting here took real iteration - see `.ai/context.md`'s full "Marine
+  Walk" saga for the actual bugs found (an MPQ locale field, missing
+  BroodWar-extended tech/upgrade sections, unit property flags, and more),
+  each one caught by either testing or a byte-level comparison against a
+  real reference map, not guessed.
 
 Not yet done:
 
-- **Writing/round-tripping** - everything so far is read-only. No CHK
-  section re-encoding, no MPQ repackaging, no PKWARE "implode"
-  (compression) counterpart to the "explode" decompressor.
+- **Editing/round-tripping an *existing* map.** The write path above only
+  builds fresh maps from scratch; nothing re-encodes a map we've read
+  back out yet.
+- **Terrain walkability** was the first post-load problem: tile ids need
+  to be *confirmed* walkable (e.g. by cross-referencing real Start
+  Location/mineral placements in an official map), not just common in
+  some other map's terrain data - see `.ai/context.md`'s latest entry.
 - **Natural-language -> trigger editing** - the original ask. The library
   is the foundation for this but the generation/editing layer itself
   hasn't been started.
@@ -112,10 +128,12 @@ Not yet done:
 
 ## Suggested next steps
 
-Roughly in order of what unlocks the most:
+Roughly in order of what unlocks the most (kept current in
+`.ai/roadmap.md` - this section is a lighter summary of the same list):
 
-1. Decide the shape of the write path (needed before any real "editing"):
-   CHK section re-encoding, PKWARE implode, and MPQ repackaging.
+1. Load `maps_generated/marine_walk.scx` in ScmDraft 2 / the game and see
+   what happens - resolves the two open unverified bets in the write path
+   at once.
 2. Cross-validate a handful of decoded triggers against ScmDraft 2's own
    trigger window on the same map, to catch anything `triggers.py`'s
    opcode/argument tables still get subtly wrong.

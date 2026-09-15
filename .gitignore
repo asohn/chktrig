@@ -27,8 +27,9 @@ Thumbs.db
 maps/*.scm
 maps/*.scx
 !maps/Chess (final)!.scm
+!maps/marine_one.scx
 
-# Generated map output (regeneratable artifacts, not source - see maps_generate/.empty)
-maps_generate/*.scm
-maps_generate/*.scx
-
+# Generated map output (regeneratable artifacts, not source - see maps_generated/.empty)
+maps_generated/*.scm
+maps_generated/*.scx
+!marine_walk.scx

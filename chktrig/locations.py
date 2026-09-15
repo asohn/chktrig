@@ -38,6 +38,27 @@ class Location:
             self.name_string_id or self.left or self.top or self.right or self.bottom
         )
 
+    def encode(self) -> bytes:
+        return struct.pack(
+            "<4LHH", self.left, self.top, self.right, self.bottom,
+            self.name_string_id, self.elevation_flags,
+        )
+
+
+# 255 slots for version >= SC104 (matches CHKSectionMRGN.process_data's own
+# rule: `255 if ver.version >= SC104 else 64`); we only ever target the
+# modern/BroodWar format here, so always pad to the larger count.
+MRGN_SLOT_COUNT = 255
+
+
+def encode_mrgn(locations: list[Location], slot_count: int = MRGN_SLOT_COUNT) -> bytes:
+    by_index = {loc.index: loc for loc in locations}
+    out = bytearray()
+    for i in range(slot_count):
+        loc = by_index.get(i) or Location(i, 0, 0, 0, 0, 0, 0)
+        out += loc.encode()
+    return bytes(out)
+
 
 def decode_mrgn(data: bytes) -> list[Location]:
     locations = []

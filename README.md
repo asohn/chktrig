@@ -1,8 +1,12 @@
-# chktrig - StarCraft: Brood War trigger reader
+# chktrig - StarCraft: Brood War trigger reader (and, now, a first writer)
 
-A from-scratch Python library for reading (not yet writing) the trigger
-data embedded in `.scx`/`.scm` StarCraft: Brood War maps, including maps
-that are deliberately "protected" against exactly this kind of parsing.
+A from-scratch Python library for reading the trigger data embedded in
+`.scx`/`.scm` StarCraft: Brood War maps, including maps that are
+deliberately "protected" against exactly this kind of parsing - plus a
+first, experimental **write path** that can build a brand-new map from
+nothing (`mpq_write.py`, `chk_encode.py`, `units.py`; see
+[.ai/context.md](.ai/context.md)'s "Marine Walk" entry for what that can
+and can't do yet - it hasn't been confirmed to load in-game).
 
 For *why* things are built the way they are and the format/protection
 details, see [docs/chk_trigger_format.md](docs/chk_trigger_format.md) and
@@ -142,9 +146,18 @@ trig_list = triggers.decode_trig(data)   # list[Trigger]
 
 ## Known limitations
 
-- **Read-only.** No CHK section re-encoding, no PKWARE "implode"
-  (compression - only its opposite, decompression, is implemented), no MPQ
-  repackaging. Nothing here writes a map yet.
+- **The write path is new and unconfirmed to work in-game.**
+  `mpq_write.py` builds MPQ archives storing every member uncompressed and
+  unencrypted rather than implementing PKWARE "implode" (compression) -
+  this is a deliberate simplification, not a confirmed-safe shortcut; no
+  real map we've read has ever had either off. The generated
+  `maps_generated/marine_walk.scx` round-trips perfectly through both our
+  own reader and independent, unmodified `mpyq` - that's real evidence
+  the container/CHK encoding is structurally correct, but it is *not*
+  evidence the retail engine or ScmDraft 2 will load it. See
+  `.ai/context.md` for the full picture. Also: the write path only builds
+  fresh maps from scratch - nothing re-encodes an *existing* map's
+  sections yet.
 - Unit type ids render as `Unit#N` - no unit-name table is wired in.
 - `action`'s `percentage` field mapping is flagged unverified in
   `triggers.py` (PyMS's own reference source is internally inconsistent

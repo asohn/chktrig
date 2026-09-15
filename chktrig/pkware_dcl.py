@@ -309,3 +309,176 @@ class _Exploder:
 def explode(data: bytes) -> bytes:
     """Decompress ("explode") a single PKWARE DCL imploded block."""
     return _Exploder(data).expand()
+
+
+# --- implode (compress) -----------------------------------------------------
+#
+# Ported from the match-finding *shape* (not the sophisticated hash/lookahead
+# machinery) of the reference implementation: StormLib's src/pklib/implode.c
+# (github.com/ladislav-zezula/StormLib, Copyright Ladislav Zezula). That
+# source's `FindRep`/`SortBuffer` build an elaborate PAIR_HASH index for
+# near-optimal match selection; this is a much simpler greedy hash-chain
+# matcher instead - it doesn't compress as tightly, but produces output that
+# is bit-for-bit *decodable* by the same fixed code tables `explode` (and the
+# real game) use, which is the only thing that actually matters for a
+# roundtrip. Verified by exploding our own implode() output and comparing
+# against the original - see scripts/ and the session that added this.
+#
+# Format recap (mirrors `_Exploder` above, run backwards): byte0 = comp_type,
+# byte1 = dsize_bits, then a LSB-first bitstream of the SAME 9-bit binary-
+# mode literals / length+distance copy codes `_Exploder` decodes, terminated
+# by a specific maximum-length code (0x305 in the reference's code-table
+# indexing) that decodes to the value 0x205 - `_Exploder.decode_lit`'s DONE
+# sentinel.
+
+MAX_MATCH_LENGTH = 0x204  # 516 - matches MAX_REP_LENGTH in the reference
+_MIN_MATCH_LENGTH = 2
+
+# CMP_IMPLODE_DICT_SIZE3 in pklib.h: the largest standard window (0x1000
+# bytes) - gives matches the most reach, which matters for the kind of
+# large repeated runs (all-default tables, blank trigger slots) real CHK
+# sections are full of.
+DICT_SIZE = 0x1000
+DSIZE_BITS = 6
+DSIZE_MASK = 0x3F
+
+_COMP_TYPE_BINARY = 0
+
+
+class _BitWriter:
+    """LSB-first bit accumulator - the write-side mirror of `_Exploder`'s
+    `bit_buff`/`_waste_bits` (which consumes bits LSB-first per byte)."""
+
+    __slots__ = ("out", "acc", "nbits")
+
+    def __init__(self):
+        self.out = bytearray()
+        self.acc = 0
+        self.nbits = 0
+
+    def write(self, nbits: int, value: int) -> None:
+        self.acc |= (value & ((1 << nbits) - 1)) << self.nbits
+        self.nbits += nbits
+        while self.nbits >= 8:
+            self.out.append(self.acc & 0xFF)
+            self.acc >>= 8
+            self.nbits -= 8
+
+    def getvalue(self) -> bytes:
+        if self.nbits > 0:
+            self.out.append(self.acc & 0xFF)
+        return bytes(self.out)
+
+
+def _length_code(match_len: int) -> tuple[int, int]:
+    """Map a match length (2..MAX_MATCH_LENGTH) to (group_index, extra_bits_value)."""
+    raw = match_len - 2
+    for i in range(15, -1, -1):
+        if _LEN_BASE[i] <= raw:
+            return i, raw - _LEN_BASE[i]
+    raise AssertionError(f"length {match_len} out of range")  # pragma: no cover
+
+
+def _emit_literal(bw: _BitWriter, byte: int) -> None:
+    # Binary-mode literal: 9 bits, code = byte*2 (bit0=0 -> "not a copy",
+    # bits1-8 -> the raw byte value) - matches _Exploder's `comp_type ==
+    # _COMP_BINARY` branch of decode_lit exactly.
+    bw.write(9, byte * 2)
+
+
+def _emit_copy(bw: _BitWriter, match_len: int, distance: int) -> None:
+    group, extra = _length_code(match_len)
+    code = (extra << (_LEN_BITS[group] + 1)) | (_LEN_CODE[group] * 2) | 1
+    bits = _EX_LEN_BITS[group] + _LEN_BITS[group] + 1
+    bw.write(bits, code)
+
+    d = distance - 1  # the format stores backward distance decremented by 1
+    if match_len == 2:
+        pos = d >> 2
+        bw.write(_DIST_BITS[pos], _DIST_CODE[pos])
+        bw.write(2, d & 3)
+    else:
+        pos = d >> DSIZE_BITS
+        bw.write(_DIST_BITS[pos], _DIST_CODE[pos])
+        bw.write(DSIZE_BITS, d & DSIZE_MASK)
+
+
+def _emit_terminator(bw: _BitWriter) -> None:
+    # The reference encodes this as nChCodes[0x305]/nChBits[0x305] - the
+    # very last sub-code of the largest length group (group 15, extra-bits
+    # value 255), which happens to decode to LEN_BASE[15] + 255 == 0x205,
+    # _Exploder.decode_lit's DONE sentinel. Precomputed by hand from
+    # implode.c's table-building loop rather than reimplementing that whole
+    # loop for one fixed value: group=15 has LEN_BITS=7, LEN_CODE=0, so
+    # bits = 8 (EX_LEN_BITS[15]) + 7 + 1 = 16, code = (255<<8)|(0*2)|1 = 0xFF01.
+    assert _LEN_BITS[15] == 7 and _LEN_CODE[15] == 0 and _EX_LEN_BITS[15] == 8
+    bw.write(16, 0xFF01)
+
+
+def _find_match(data: bytes, i: int, n: int, table: dict[int, list[int]]) -> tuple[int, int]:
+    """Greedy hash-chain match finder. Returns (length, distance), (0, 0) if
+    no usable match. Only 3+-byte prefixes are indexed (shorter matches
+    aren't worth a copy code over 1-2 literals anyway)."""
+    if i + 3 > n:
+        return 0, 0
+    key = data[i] | (data[i + 1] << 8) | (data[i + 2] << 16)
+    candidates = table.get(key)
+    if not candidates:
+        return 0, 0
+    limit = i - DICT_SIZE
+    max_len = min(MAX_MATCH_LENGTH, n - i)
+    best_len, best_dist = 0, 0
+    # Most-recent-first: prefers shorter distances on a length tie, which is
+    # cheaper to encode and, more importantly, keeps candidate distances
+    # within DICT_SIZE more often.
+    for j in reversed(candidates):
+        if j < limit:
+            break
+        length = 0
+        while length < max_len and data[j + length] == data[i + length]:
+            length += 1
+        if length > best_len:
+            best_len, best_dist = length, i - j
+            if best_len >= max_len:
+                break
+    return best_len, best_dist
+
+
+_HASH_BUCKET_LIMIT = 32  # cap per-hash candidate list length, bound match-finding cost
+
+
+def _index_position(data: bytes, i: int, n: int, table: dict[int, list[int]]) -> None:
+    if i + 3 > n:
+        return
+    key = data[i] | (data[i + 1] << 8) | (data[i + 2] << 16)
+    bucket = table.setdefault(key, [])
+    bucket.append(i)
+    if len(bucket) > _HASH_BUCKET_LIMIT:
+        del bucket[0]
+
+
+def implode(data: bytes) -> bytes:
+    """Compress ("implode") data into a PKWARE DCL block `explode` (and the
+    real game) can decode. See module-level comment above for what's
+    simplified relative to the reference implementation (compression ratio
+    only - output is fully valid DCL data)."""
+    n = len(data)
+    bw = _BitWriter()
+    table: dict[int, list[int]] = {}
+
+    i = 0
+    while i < n:
+        length, distance = _find_match(data, i, n, table)
+        if length >= _MIN_MATCH_LENGTH and not (length == 2 and distance > 0x100):
+            _emit_copy(bw, length, distance)
+            end = i + length
+            while i < end:
+                _index_position(data, i, n, table)
+                i += 1
+        else:
+            _emit_literal(bw, data[i])
+            _index_position(data, i, n, table)
+            i += 1
+
+    _emit_terminator(bw)
+    return bytes([_COMP_TYPE_BINARY, DSIZE_BITS]) + bw.getvalue()

@@ -88,6 +88,24 @@ def decode_strx(data: bytes) -> dict[int, str]:
     return _decode(data, "<I", "<I")
 
 
+def encode_str(strings: dict[int, str]) -> bytes:
+    """Build a STR section. `strings` maps string id -> text; id 0 is
+    conventionally "no string" (callers treat it as such - see StringTable
+    below), so slot 0 is always written as an empty placeholder regardless
+    of what's passed in for it. Ids must fit in a u16 offset/count (STR's
+    64KB ceiling - use encode_strx for anything larger)."""
+    count = max(strings.keys(), default=0) + 1
+    texts = [strings.get(i, "") if i != 0 else "" for i in range(count)]
+    blob = bytearray()
+    offsets = []
+    base = 2 + count * 2
+    for text in texts:
+        offsets.append(base + len(blob))
+        blob += text.encode("latin-1") + b"\x00"
+    header = struct.pack("<H", count) + b"".join(struct.pack("<H", o) for o in offsets)
+    return header + bytes(blob)
+
+
 class StringTable:
     """Combined STR/STRx lookup, matching how the game resolves string ids:
     STRx entries (Remastered / >64KB extended table) take priority, falling

@@ -246,6 +246,61 @@ def _location_index(raw: int) -> int | None:
     return raw - 1
 
 
+def make_condition(
+    type: int, location: int = 0, player: int = 0, amount: int = 0,
+    unit: int = 0, comparison: int = 0, restype: int = 0, flags: int = 0,
+) -> Condition:
+    """Build a Condition from named fields - the write-side counterpart to
+    Condition's read-only .location/.player/etc properties."""
+    return Condition((location, player, amount, unit, comparison, type, restype, flags))
+
+
+def make_action(
+    type: int, location: int = 0, string: int = 0, wav: int = 0, time: int = 0,
+    player: int = 0, amount: int = 0, unit: int = 0, byte8: int = 0, flags: int = 0,
+) -> Action:
+    """Build an Action from named fields - the write-side counterpart to
+    Action's read-only .location/.player/etc properties."""
+    return Action((location, string, wav, time, player, amount, unit, type, byte8, flags))
+
+
+BLANK_CONDITION = make_condition(0)
+BLANK_ACTION = make_action(0)
+
+
+def make_trigger(
+    conditions: list[Condition], actions: list[Action],
+    owners: list[int] | None = None, exec_flags: int = 0,
+) -> Trigger:
+    """Build a Trigger from a (short) list of real conditions/actions -
+    encode_trig pads each out to the full 16/64 slots on write."""
+    return Trigger(list(conditions), list(actions), list(owners or [0] * 28), exec_flags)
+
+
+def location_raw(index: int) -> int:
+    """Inverse of _location_index: map a 0-based MRGN index (63 =
+    Anywhere) to the raw value a condition/action's location field stores."""
+    if index == 63:
+        return 64
+    return index + 1
+
+
+def encode_trigger(trig: Trigger) -> bytes:
+    conditions = (list(trig.conditions) + [BLANK_CONDITION] * MAX_CONDITIONS)[:MAX_CONDITIONS]
+    actions = (list(trig.actions) + [BLANK_ACTION] * MAX_ACTIONS)[:MAX_ACTIONS]
+    out = bytearray()
+    for c in conditions:
+        out += _CONDITION_STRUCT.pack(*c.raw)
+    for a in actions:
+        out += _ACTION_STRUCT.pack(*a.raw)
+    out += _TRAILER_STRUCT.pack(trig.exec_flags, *trig.owners)
+    return bytes(out)
+
+
+def encode_trig(triggers: list[Trigger]) -> bytes:
+    return b"".join(encode_trigger(t) for t in triggers)
+
+
 def decode_trig(data: bytes) -> list[Trigger]:
     triggers: list[Trigger] = []
     offset = 0
