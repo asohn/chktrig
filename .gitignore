@@ -32,4 +32,4 @@ maps/*.scx
 # Generated map output (regeneratable artifacts, not source - see maps_generated/.empty)
 maps_generated/*.scm
 maps_generated/*.scx
-!marine_walk.scx
+!maps_generated/marine_walk.scx

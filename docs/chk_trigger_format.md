@@ -5,6 +5,18 @@ PyMS's source (github.com/poiuyqwert/PyMS - the community-standard Python
 modding suite), then verified byte-for-byte against two real maps
 (`Elements RPG.scm` and `Elements RPG 2026.scx`).
 
+> **Note on reproducibility:** `Elements RPG.scm` and `Elements RPG 2026.scx`
+> are referenced extensively throughout this document (they're the source of
+> most of the "protection"/resync findings below) but are **not included in
+> this repository** - they're someone else's map, not ours to redistribute.
+> `.gitignore`'s generic `maps/*.scm` / `maps/*.scx` rule covers them (no
+> exception line was added, unlike `maps/marine_one.scx`). That means the
+> specific byte offsets and hex dumps quoted below are documented findings,
+> not independently reproducible from a fresh clone - if you have your own
+> copy of a similarly-protected map, the resync logic in `chktrig/chk.py` is
+> what to test them against; see `tests/test_chk.py` for a synthetic
+> stand-in that exercises the same code path without needing the real file.
+
 ## Container format
 
 `.scx`/`.scm` files are MPQ archives. The map data lives at the member path

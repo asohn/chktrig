@@ -111,8 +111,12 @@ def build_mtxm() -> bytes:
     return bytes(out)
 
 
-def main() -> None:
-    OUT_PATH.parent.mkdir(exist_ok=True)
+def main(out_path: Path = OUT_PATH) -> bytes:
+    """Build the map and write it to `out_path` (defaults to the real,
+    game-verified `maps_generated/marine_walk.scx`). Returns the archive
+    bytes, mainly so tests can point this at a throwaway path instead of
+    overwriting that committed, known-working file."""
+    out_path.parent.mkdir(exist_ok=True, parents=True)
 
     # --- strings -------------------------------------------------------
     str_table = {
@@ -289,8 +293,9 @@ def main() -> None:
         encrypt={"staredit\\scenario.chk"},
     )
 
-    OUT_PATH.write_bytes(archive_bytes)
-    print(f"wrote {OUT_PATH} ({len(archive_bytes)} bytes, chk={len(chk_bytes)} bytes)")
+    out_path.write_bytes(archive_bytes)
+    print(f"wrote {out_path} ({len(archive_bytes)} bytes, chk={len(chk_bytes)} bytes)")
+    return archive_bytes
 
 
 if __name__ == "__main__":

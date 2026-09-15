@@ -779,3 +779,61 @@ get a real, working reference artifact (a hand-built ScmDraft 2 map, an
 official ladder map) and diff against it byte-for-byte, rather than
 reason from format documentation or memory alone. That pattern is worth
 carrying into whatever's built next on top of this write path.
+
+## 2026-09-14 - GitHub-collaboration readiness audit and fixes
+
+User asked whether there were documentation/collaboration gaps before
+opening this up to other contributors on GitHub. There were several -
+all now closed:
+
+- **No `LICENSE` file.** User chose MIT; added with the git-derived
+  copyright name (`Andrew Sohn`, from commit authorship).
+- **Stale README.** The intro and "Known limitations" section still
+  described the write path as unconfirmed/aspirational - it's been
+  game-verified since the Marine Walk arc above. Rewrote both, added a
+  full "Writing a map" section documenting `chk_encode`/`units`/
+  `mpq_write`/`pkware_dcl` (every function name in it verified against
+  the actual source via grep before writing it down - same standard as
+  everywhere else in this repo), and added "Contributing"/"License"
+  sections.
+- **Real `.gitignore` bug**: the exception line was `!marine_walk.scx`,
+  but the file actually lives at `maps_generated/marine_walk.scx` - a
+  bare filename pattern doesn't match a nested path, so the exception
+  was silently doing nothing (the file happened to already be tracked
+  from before the rule existed, which is why this went unnoticed).
+  Fixed to `!maps_generated/marine_walk.scx` and confirmed with
+  `git check-ignore -v`.
+- **No test suite at all.** Every fix in the entire Marine Walk arc was
+  verified ad hoc (one-off scripts, a real in-game load) with nothing
+  left behind to catch a regression. Added `tests/` (pytest): round-trip
+  coverage for `pkware_dcl`, `mpq_write`, `chk`/`chk_encode`, and
+  `triggers`, plus an integration test that runs the actual
+  `generate_marine_map.main()` end to end against a `tmp_path` and
+  checks the output has every required section and a sensible trigger
+  shape. 41 passed, 1 xfailed (the documented incompressible-sector
+  limitation, marked `strict=True` so it fails loudly if that gap is
+  ever actually closed). This needed a small refactor to
+  `generate_marine_map.py`: `main()` now takes an `out_path` parameter
+  (defaulting to the real `OUT_PATH`) specifically so tests never risk
+  overwriting the committed, known-working `marine_walk.scx` - verified
+  the refactor changed nothing by diffing regenerated output against the
+  pre-refactor file byte-for-byte (identical).
+  Added `requirements-dev.txt` (`requirements.txt` + `pytest`) since it
+  had only been `pip install`-ed ad hoc until now.
+- **`CONTRIBUTING.md`** written from scratch, translating `.clauderules`'s
+  "cite the source, never guess" standard for external contributors, plus
+  setup/test-running instructions and the map-fixture policy below.
+- **User explicitly declined to add the `Elements RPG` map fixtures** to
+  the public repo ("No, leave them out") despite them being the source of
+  most of the protection/resync findings in
+  `docs/chk_trigger_format.md` - they're someone else's map, not ours to
+  redistribute. Added a note at the top of that doc making the
+  non-inclusion explicit, so a reader isn't left assuming they can clone
+  the repo and reproduce the byte offsets directly.
+- Also removed `_test_mpyq_open.scx`, a stray untracked scratch file left
+  over in the repo root from ad hoc testing before `tests/` existed - the
+  new `test_plain_mpyq_can_open_the_container` test covers the same check
+  properly now, with automatic cleanup via `tmp_path`.
+
+Nothing from this pass has been committed yet - all still working-tree
+changes as of this entry.

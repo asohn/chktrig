@@ -10,14 +10,36 @@ Project-specific rules, distinct from `docs/` (what the code does) and
   numbers, struct offsets, or section tags from general StarCraft
   knowledge - read them from `chktrig/triggers.py`, `chktrig/chk.py`,
   etc., and cite the file/line.
-- The library is **read-only** (no CHK re-encoding, no PKWARE implode,
-  no MPQ repackaging) until the write path lands - see
-  `.ai/roadmap.md` item 1. Don't imply a write/edit capability exists
-  before it does.
+- The library has both a read path and a write path now (`mpq_write.py`,
+  `chk_encode.py`, `units.py`) - the write path is confirmed working by
+  an actual successful load and play-test in the real game, not just
+  self-consistency checks (see `.ai/context.md`'s "Marine Walk" entries).
+  It only builds *fresh* maps from scratch, though - nothing re-encodes
+  an existing map's sections back out yet. Don't imply that capability
+  exists before it does.
 - If a map needed resync recovery on `TRIG` or `MBRF` themselves (not
   just a neighboring section), say so explicitly and treat the decoded
   trigger content as untrusted/possibly-degraded, not ground truth -
   see the Chess map case study in `.ai/context.md` for why.
+
+## Tests
+
+- `tests/` (pytest, run via `python -m pytest tests/`) exists and is the
+  home for the "actually test the claim" half of the rule above - a new
+  format finding (section tag, opcode, byte layout) should land with a
+  test that pins it down, not just a doc/comment update.
+- Prefer realistically compressible synthetic data (long runs, zero-fill)
+  over `os.urandom()` in MPQ/CHK round-trip tests unless the test is
+  specifically about incompressible data - see `test_mpq_write.py`'s
+  module docstring for the real, documented gap this avoids tripping
+  over by accident.
+- A known, unfixed limitation gets a `@pytest.mark.xfail(strict=True,
+  reason=...)` test, not a silently-skipped one.
+- Nothing in the test suite should write to `maps/` or `maps_generated/`
+  directly - use pytest's `tmp_path` fixture. `generate_marine_map.py`'s
+  `main()` takes an explicit `out_path` parameter for exactly this
+  reason; don't overwrite the real, committed, game-verified
+  `marine_walk.scx` from a test run.
 
 ## Map files
 

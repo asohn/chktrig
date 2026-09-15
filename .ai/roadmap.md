@@ -20,13 +20,24 @@ methodology that made it converge - worth reading before extending this
 further. Still not done: nothing here re-encodes an *existing* map's
 sections yet (only builds fresh ones from scratch).
 
+**Also DONE - a real test suite exists now (`tests/`, pytest):**
+round-trip coverage for `pkware_dcl`, `mpq_write`, `chk`/`chk_encode`,
+and `triggers`, plus an integration test running the actual
+`generate_marine_map.main()` end to end. Any new format finding from
+here on should land with a test, not just a doc update - see
+`CONTRIBUTING.md`.
+
 1. **Harden `chk.py`'s resync** to validate individual trigger records
    inside a recovered span, not just the span boundary. The Chess map
    (`maps/Chess (final)!.scm`) is a ready-made regression case: it
    needed resync on `TRIG`/`MBRF` themselves and currently decodes to
    mostly-blank noise where real logic almost certainly is. Fixing this
    would let us confirm what coordinate mechanism that map actually
-   uses (see context.md).
+   uses (see context.md). `tests/test_chk.py` already has a synthetic
+   corrupted-length regression test for the resync *mechanism* itself -
+   this item is about the harder problem of validating what comes out
+   of a recovered span, for which the Chess map is the real case to
+   test against.
 2. **Pseudo-primitive standard library module** cataloging the known
    idioms (death-counter-as-int, resource-as-register, unit-stat-as-
    object-field, wandering-unit-as-entropy-source, relocatable-
