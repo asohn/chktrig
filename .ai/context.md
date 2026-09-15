@@ -752,3 +752,30 @@ here. Highlights not already covered by the walkability-fix entry above:
 
 `.ai/roadmap.md` item 5 (`terrain.py`) updated to reflect that the format
 is now documented and ready to implement against, not just "not started."
+
+## 2026-09-14 - Confirmed: marine_walk.scx fully works, terrain included
+
+User tested the terrain fix: success. The Marine walks the ground-tile
+fill, not just the marker patches. This closes out the entire "Marine
+Walk" arc - a real, from-scratch-generated `.scx` loads in the retail
+game, plays, and the terrain is properly traversable, not just visually
+present. Roadmap item 0 (terrain) is done; nothing about the write path
+or terrain is a known open bug right now.
+
+Worth naming plainly what this actually validates, since it took ~8 load
+attempts and this many context entries to get here: every real bug found
+along the way (MPQ hash-table locale, missing computer player + Start
+Location markers, wrong MBRF content, wrong unit property flags, wrong
+compression algorithm entirely, single-unit vs. multi-sector storage,
+missing BroodWar-extended tech/upgrade sections, and finally terrain tile
+ids picked by frequency instead of verified walkability) was a real,
+independently-diagnosable thing - not noise, and not fixed by any single
+"oh it was this the whole time" moment. The methodology that actually
+worked, consistently, once it was adopted: stop asserting probabilistic
+"probably fine" judgments about container/section/field choices, and
+either (a) test the actual claim directly (round-trip through independent
+readers, synthetic edge-case matrices before trusting new code) or (b)
+get a real, working reference artifact (a hand-built ScmDraft 2 map, an
+official ladder map) and diff against it byte-for-byte, rather than
+reason from format documentation or memory alone. That pattern is worth
+carrying into whatever's built next on top of this write path.

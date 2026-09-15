@@ -93,26 +93,27 @@ Working end-to-end against both real maps:
   recovering from the deliberately corrupted STR offset table (zone names,
   bridge names, full multi-line quest/death/anti-cheat message text all
   come out clean).
-- **The write path works, confirmed by an actual successful load in the
-  real game** - not just structural self-consistency checks. `mpq_write.py`
-  (multi-sector, PKWARE-compressed via a from-scratch `pkware_dcl.implode`,
-  encrypted) + `chk_encode.py` (13 section encoders) + `units.py` build
-  `maps_generated/marine_walk.scx` from nothing, and it loads and plays.
-  Getting here took real iteration - see `.ai/context.md`'s full "Marine
-  Walk" saga for the actual bugs found (an MPQ locale field, missing
-  BroodWar-extended tech/upgrade sections, unit property flags, and more),
-  each one caught by either testing or a byte-level comparison against a
-  real reference map, not guessed.
+- **The write path works, confirmed by an actual successful load and
+  play-test in the real game** - not just structural self-consistency
+  checks. `mpq_write.py` (multi-sector, PKWARE-compressed via a
+  from-scratch `pkware_dcl.implode`, encrypted) + `chk_encode.py` (13
+  section encoders) + `units.py` build `maps_generated/marine_walk.scx`
+  from nothing, and it loads, plays, and has correctly walkable terrain
+  (tile ids confirmed via cross-referencing real Start Location/mineral
+  placements in an official map, not picked by raw frequency - see
+  `docs/terrain_format.md`). Getting here took real iteration - see
+  `.ai/context.md`'s full "Marine Walk" saga for the actual bugs found
+  (an MPQ locale field, missing BroodWar-extended tech/upgrade sections,
+  unit property flags, wrong terrain tile ids, and more), each one caught
+  by testing or a byte-level comparison against a real reference map, not
+  guessed - and worth reading as a methodology reference before extending
+  this further.
 
 Not yet done:
 
 - **Editing/round-tripping an *existing* map.** The write path above only
   builds fresh maps from scratch; nothing re-encodes a map we've read
   back out yet.
-- **Terrain walkability** was the first post-load problem: tile ids need
-  to be *confirmed* walkable (e.g. by cross-referencing real Start
-  Location/mineral placements in an official map), not just common in
-  some other map's terrain data - see `.ai/context.md`'s latest entry.
 - **Natural-language -> trigger editing** - the original ask. The library
   is the foundation for this but the generation/editing layer itself
   hasn't been started.
